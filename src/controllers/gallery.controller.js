@@ -2,7 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const cloudinary = require("../utils/cloudinary");
 
-// PUBLIC – GET GALLERY
+// PUBLIC
 exports.getImages = async (req, res) => {
   try {
     const images = await prisma.galleryImage.findMany({
@@ -10,36 +10,48 @@ exports.getImages = async (req, res) => {
     });
     res.json(images);
   } catch (err) {
-    console.error(err);
+    console.error("GET GALLERY ERROR:", err);
     res.status(500).json({ message: "Failed to load gallery" });
   }
 };
 
-// ADMIN – ADD IMAGE
+// ADMIN ADD
 exports.addImage = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "Image required" });
     }
 
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: "temple-gallery"
-    });
+    const uploadToCloudinary = () =>
+      new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "temple-gallery" },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+
+        stream.end(req.file.buffer);
+      });
+
+    const result = await uploadToCloudinary();
 
     const image = await prisma.galleryImage.create({
       data: {
-        imageUrl: result.secure_url
+        imageUrl: result.secure_url,
+        publicId: result.public_id
       }
     });
 
-    res.status(201).json({ message: "Image uploaded", image });
+    res.status(201).json(image);
   } catch (err) {
     console.error("UPLOAD ERROR:", err);
-    res.status(500).json({ message: "Image upload failed" });
+    res.status(500).json({ message: "Upload failed" });
   }
 };
 
-// ADMIN – DELETE IMAGE
+// ADMIN DELETE
 exports.deleteImage = async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -52,18 +64,8 @@ exports.deleteImage = async (req, res) => {
       return res.status(404).json({ message: "Image not found" });
     }
 
-    // Extract public_id from URL
-    const publicId = image.imageUrl
-      .split("/")
-      .slice(-2)
-      .join("/")
-      .replace(/\.[^/.]+$/, "");
-
-    await cloudinary.uploader.destroy(publicId);
-
-    await prisma.galleryImage.delete({
-      where: { id }
-    });
+    await cloudinary.uploader.destroy(image.publicId);
+    await prisma.galleryImage.delete({ where: { id } });
 
     res.json({ message: "Image deleted successfully" });
   } catch (err) {
