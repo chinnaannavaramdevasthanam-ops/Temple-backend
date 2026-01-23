@@ -28,7 +28,17 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/gallery", galleryRoutes);
   
 
-
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({
+        message: "Image too large. Max allowed size is 25MB."
+      });
+    }
+  }
+  next(err);
+});
+ 
 app.get("/", (req, res) => {
   res.send("Temple Backend Running");
 });
