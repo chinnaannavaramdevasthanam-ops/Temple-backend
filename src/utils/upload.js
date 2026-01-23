@@ -3,11 +3,11 @@ const multer = require("multer");
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 25 * 1024 * 1024 // ✅ 25MB
+    fileSize: 10 * 1024 * 1024 // 🔥 10MB (safe for free Cloudinary)
   },
   fileFilter: (req, file, cb) => {
     if (!file.mimetype.startsWith("image/")) {
-      return cb(new Error("Only image files allowed"), false);
+      return cb(new Error("Only image files allowed"));
     }
     cb(null, true);
   }

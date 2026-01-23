@@ -10,15 +10,13 @@ const {
   deleteImage
 } = require("../controllers/gallery.controller");
 
-// PUBLIC
 router.get("/", getImages);
 
-// ADMIN
 router.post(
   "/",
   auth,
   admin,
-  upload.single("image"), // 🔥 THIS MUST BE HERE
+  upload.single("image"),
   addImage
 );
 
