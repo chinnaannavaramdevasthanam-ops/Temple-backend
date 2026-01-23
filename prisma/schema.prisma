@@ -58,6 +58,7 @@ model Donation {
 model GalleryImage {
   id        Int      @id @default(autoincrement())
   imageUrl  String
+  publicId  String 
   createdAt DateTime @default(now())
 }
 
