@@ -24,7 +24,7 @@ app.use("/api/sevas", sevaRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/donations", donationRoutes);  
 app.use("/api/admin", adminRoutes);
-app.use("/uploads", express.static("uploads"));
+
 app.use("/api/gallery", galleryRoutes);
   
 

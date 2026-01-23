@@ -1,34 +1,45 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
-const fs = require("fs");
-const path = require("path");
+const cloudinary = require("../utils/cloudinary");
 
-// PUBLIC
+// PUBLIC – GET GALLERY
 exports.getImages = async (req, res) => {
   try {
     const images = await prisma.galleryImage.findMany({
       orderBy: { createdAt: "desc" }
     });
     res.json(images);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Failed to load gallery" });
   }
 };
 
-// ADMIN ADD
+// ADMIN – ADD IMAGE
 exports.addImage = async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "Image required" });
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Image required" });
+    }
+
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: "temple-gallery"
+    });
+
+    const image = await prisma.galleryImage.create({
+      data: {
+        imageUrl: result.secure_url
+      }
+    });
+
+    res.status(201).json({ message: "Image uploaded", image });
+  } catch (err) {
+    console.error("UPLOAD ERROR:", err);
+    res.status(500).json({ message: "Image upload failed" });
   }
-
-  const image = await prisma.galleryImage.create({
-    data: { imageUrl: `/uploads/${req.file.filename}` }
-  });
-
-  res.status(201).json({ message: "Image uploaded", image });
 };
 
-// ADMIN DELETE
+// ADMIN – DELETE IMAGE
 exports.deleteImage = async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -41,14 +52,22 @@ exports.deleteImage = async (req, res) => {
       return res.status(404).json({ message: "Image not found" });
     }
 
+    // Extract public_id from URL
+    const publicId = image.imageUrl
+      .split("/")
+      .slice(-2)
+      .join("/")
+      .replace(/\.[^/.]+$/, "");
+
+    await cloudinary.uploader.destroy(publicId);
+
     await prisma.galleryImage.delete({
       where: { id }
     });
 
     res.json({ message: "Image deleted successfully" });
-  } catch (error) {
-    console.error("DELETE IMAGE ERROR:", error);
+  } catch (err) {
+    console.error("DELETE ERROR:", err);
     res.status(500).json({ message: "Delete failed" });
   }
 };
-
