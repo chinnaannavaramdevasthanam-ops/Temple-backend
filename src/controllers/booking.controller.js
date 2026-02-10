@@ -1,4 +1,6 @@
-exports.bookSeva = async (req, res) => {
+const prisma = require("../config/prisma");
+
+const bookSeva = async (req, res) => {
   try {
     const { sevaId, date } = req.body;
     const requestedDate = new Date(date);
@@ -12,11 +14,11 @@ exports.bookSeva = async (req, res) => {
     }
 
     const start = new Date(requestedDate);
-    start.setHours(0,0,0,0);
+    start.setHours(0, 0, 0, 0);
     const end = new Date(requestedDate);
-    end.setHours(23,59,59,999);
+    end.setHours(23, 59, 59, 999);
 
-    const booked = await prisma.booking.count({
+    const bookedCount = await prisma.booking.count({
       where: {
         sevaId: Number(sevaId),
         status: "CONFIRMED",
@@ -24,7 +26,7 @@ exports.bookSeva = async (req, res) => {
       }
     });
 
-    if (booked >= seva.totalSlots) {
+    if (bookedCount >= seva.totalSlots) {
       return res.status(400).json({ message: "Housefull" });
     }
 
@@ -42,4 +44,42 @@ exports.bookSeva = async (req, res) => {
     console.error("Booking Error:", err);
     res.status(500).json({ message: "Booking failed" });
   }
+};
+
+const myBookings = async (req, res) => {
+  try {
+    const bookings = await prisma.booking.findMany({
+      where: { userId: req.user.id },
+      include: { seva: true },
+      orderBy: { date: "desc" }
+    });
+
+    res.json(bookings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch bookings" });
+  }
+};
+
+const allBookings = async (req, res) => {
+  try {
+    const bookings = await prisma.booking.findMany({
+      include: {
+        user: { select: { name: true, phone: true, email: true } },
+        seva: true
+      },
+      orderBy: { date: "desc" }
+    });
+
+    res.json(bookings);
+  } catch (err) {
+    console.error("All Bookings Error:", err);
+    res.status(500).json({ message: "Failed to fetch all bookings" });
+  }
+};
+
+module.exports = {
+  bookSeva,
+  myBookings,
+  allBookings
 };
