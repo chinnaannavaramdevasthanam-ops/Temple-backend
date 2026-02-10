@@ -1,5 +1,4 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+const prisma = require("../config/prisma"); // ✅ Use shared connection
 
 /* =======================
    DASHBOARD STATS
@@ -9,22 +8,12 @@ exports.dashboardStats = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [
-      totalUsers,
-      totalSevas,
-      totalBookings,
-      todayBookings,
-      donationSum,
-      pendingDonations
-    ] = await Promise.all([
+    const [totalUsers, totalSevas, totalBookings, todayBookings, donationSum, pendingDonations] = await Promise.all([
       prisma.user.count(),
       prisma.seva.count(),
       prisma.booking.count(),
       prisma.booking.count({ where: { date: { gte: today } } }),
-      prisma.donation.aggregate({
-        _sum: { amount: true },
-        where: { paymentStatus: "SUCCESS" }
-      }),
+      prisma.donation.aggregate({ _sum: { amount: true }, where: { paymentStatus: "SUCCESS" } }),
       prisma.donation.count({ where: { paymentStatus: "CREATED" } })
     ]);
 
@@ -37,7 +26,7 @@ exports.dashboardStats = async (req, res) => {
       pendingDonations
     });
   } catch (err) {
-    console.error(err);
+    console.error("Dashboard Stats Error:", err);
     res.status(500).json({ message: "Failed to load dashboard stats" });
   }
 };
@@ -65,7 +54,8 @@ exports.recentActivity = async (req, res) => {
     });
 
     res.json({ recentBookings, recentDonations });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Failed to load recent activity" });
   }
 };
@@ -77,10 +67,10 @@ exports.getAllSevasAdmin = async (req, res) => {
   try {
     const sevas = await prisma.seva.findMany({
       orderBy: { createdAt: "desc" }
-     
     });
     res.json(sevas);
-  } catch {
+  } catch (err) {
+    console.error("Admin Sevas Error:", err);
     res.status(500).json({ message: "Failed to fetch sevas" });
   }
 };
@@ -91,9 +81,8 @@ exports.deactivateSeva = async (req, res) => {
       where: { id: Number(req.params.id) },
       data: { active: false }
     });
-
     res.json({ message: "Seva deactivated" });
-  } catch {
+  } catch (err) {
     res.status(500).json({ message: "Failed to deactivate seva" });
   }
 };
@@ -104,9 +93,8 @@ exports.activateSeva = async (req, res) => {
       where: { id: Number(req.params.id) },
       data: { active: true }
     });
-
     res.json({ message: "Seva activated" });
-  } catch {
+  } catch (err) {
     res.status(500).json({ message: "Failed to activate seva" });
   }
 };
@@ -119,24 +107,13 @@ exports.getAllBookings = async (req, res) => {
     const bookings = await prisma.booking.findMany({
       orderBy: { date: "desc" },
       include: {
-        user: {
-          select: {
-            name: true,
-            phone: true,
-            email: true
-          }
-        },
-        seva: {
-          select: {
-            name: true,
-            price: true
-          }
-        }
+        user: { select: { name: true, phone: true, email: true } },
+        seva: { select: { name: true, price: true } }
       }
     });
-
     res.json(bookings);
-  } catch {
+  } catch (err) {
+    console.error("Admin Bookings Error:", err);
     res.status(500).json({ message: "Failed to fetch bookings" });
   }
 };
@@ -149,18 +126,12 @@ exports.getAllDonations = async (req, res) => {
     const donations = await prisma.donation.findMany({
       orderBy: { createdAt: "desc" },
       include: {
-        user: {
-          select: {
-            name: true,
-            phone: true,
-            email: true
-          }
-        }
+        user: { select: { name: true, phone: true, email: true } }
       }
     });
-
     res.json(donations);
-  } catch {
+  } catch (err) {
+    console.error("Admin Donations Error:", err);
     res.status(500).json({ message: "Failed to fetch donations" });
   }
 };
@@ -168,18 +139,16 @@ exports.getAllDonations = async (req, res) => {
 exports.updateDonationStatus = async (req, res) => {
   try {
     const { status } = req.body;
-
     if (!["SUCCESS", "FAILED"].includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
     }
-
     await prisma.donation.update({
       where: { id: Number(req.params.id) },
       data: { paymentStatus: status }
     });
-
     res.json({ message: "Donation status updated" });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Failed to update donation" });
   }
 };
