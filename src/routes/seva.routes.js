@@ -4,17 +4,24 @@ const router = express.Router();
 const auth = require("../middleware/auth.middleware");
 const admin = require("../middleware/admin.middleware");
 
-const {
-  getSevas,
-  createSeva,
-  toggleSevaStatus
-} = require("../controllers/seva.controller");
+const sevaController = require("../controllers/seva.controller");
 
 // USER
-router.get("/", getSevas);
+router.get("/", sevaController.getSevas);
 
 // ADMIN
-router.post("/", auth, admin, createSeva);
-router.patch("/:id/toggle", auth, admin, toggleSevaStatus);
+router.post(
+  "/",
+  auth,
+  admin,
+  sevaController.createSeva
+);
+
+router.patch(
+  "/:id/toggle",
+  auth,
+  admin,
+  sevaController.toggleSevaStatus
+);
 
 module.exports = router;
