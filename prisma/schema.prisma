@@ -25,10 +25,14 @@ model Seva {
   id          Int       @id @default(autoincrement())
   name        String
   description String
-  price       Int
+  price       Float
   totalSlots  Int
   active      Boolean   @default(true)
+
+  isDaily     Boolean   @default(true) 
+  date        DateTime?
   createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   bookings Booking[]
 }

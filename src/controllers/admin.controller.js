@@ -77,6 +77,7 @@ exports.getAllSevasAdmin = async (req, res) => {
   try {
     const sevas = await prisma.seva.findMany({
       orderBy: { createdAt: "desc" }
+     
     });
     res.json(sevas);
   } catch {
