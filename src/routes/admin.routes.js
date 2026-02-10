@@ -4,31 +4,22 @@ const router = express.Router();
 const auth = require("../middleware/auth.middleware");
 const admin = require("../middleware/admin.middleware");
 
-const {
-  dashboardStats,
-  recentActivity,
-  getAllBookings,
-  getAllDonations,
-  updateDonationStatus,
-  getAllSevasAdmin,
-  deactivateSeva,
-  activateSeva
-} = require("../controllers/admin.controller");
+const adminController = require("../controllers/admin.controller");
 
 // DASHBOARD
-router.get("/stats", auth, admin, dashboardStats);
-router.get("/recent", auth, admin, recentActivity);
+router.get("/stats", auth, admin, adminController.dashboardStats);
+router.get("/recent", auth, admin, adminController.recentActivity);
 
-// SEVAS (ADMIN)
-router.get("/sevas", auth, admin, getAllSevasAdmin);
-router.patch("/sevas/:id/deactivate", auth, admin, deactivateSeva);
-router.patch("/sevas/:id/activate", auth, admin, activateSeva);
+// SEVAS
+router.get("/sevas", auth, admin, adminController.getAllSevasAdmin);
+router.patch("/sevas/:id/deactivate", auth, admin, adminController.deactivateSeva);
+router.patch("/sevas/:id/activate", auth, admin, adminController.activateSeva);
 
-// BOOKINGS (ADMIN)
-router.get("/bookings", auth, admin, getAllBookings);
+// BOOKINGS
+router.get("/bookings", auth, admin, adminController.getAllBookings);
 
-// DONATIONS (ADMIN)
-router.get("/donations", auth, admin, getAllDonations);
-router.patch("/donations/:id", auth, admin, updateDonationStatus);
+// DONATIONS
+router.get("/donations", auth, admin, adminController.getAllDonations);
+router.patch("/donations/:id", auth, admin, adminController.updateDonationStatus);
 
 module.exports = router;
