@@ -2,14 +2,19 @@ const prisma = require("../config/prisma");
 
 /**
  * PUBLIC – GET ALL ACTIVE SEVAS
+ * Used by: Home Page, Seva Booking Page
  */
 exports.getSevas = async (req, res) => {
   try {
     const sevas = await prisma.seva.findMany({
       where: { active: true },
       orderBy: { createdAt: "desc" },
-      // We don't need to load all bookings here for availability 
-      // because availability depends on the specific date the user chooses later.
+      include: {
+        bookings: {
+          where: { status: "CONFIRMED" },
+          select: { id: true }
+        }
+      }
     });
 
     const result = sevas.map(seva => ({
@@ -19,14 +24,16 @@ exports.getSevas = async (req, res) => {
       price: seva.price,
       totalSlots: seva.totalSlots,
       active: seva.active,
-      // Return the new fields to frontend
       isDaily: seva.isDaily,
-      date: seva.date
+      date: seva.date,
+      // Safety check: ensure bookings exists before accessing .length
+      bookedSlots: seva.bookings ? seva.bookings.length : 0,
+      availableSlots: seva.totalSlots - (seva.bookings ? seva.bookings.length : 0)
     }));
 
     res.json(result);
   } catch (err) {
-    console.error(err);
+    console.error("Error fetching sevas:", err);
     res.status(500).json({ message: "Failed to fetch sevas" });
   }
 };
@@ -36,17 +43,17 @@ exports.getSevas = async (req, res) => {
  */
 exports.createSeva = async (req, res) => {
   try {
-    // 1. Destructure new fields 'date' and 'isDaily'
     const { name, description, price, totalSlots, date, isDaily } = req.body;
 
     if (!name || !price || !totalSlots) {
       return res.status(400).json({ message: "All fields required" });
     }
 
-    // 2. Handle Date parsing
+    // SAFE DATE PARSING
     let sevaDate = null;
-    if (!isDaily && date) {
-      sevaDate = new Date(date); // Store specific date if not daily
+    // Only parse date if it's NOT daily AND date string is not empty
+    if (isDaily === false && date && date !== "") {
+      sevaDate = new Date(date);
     }
 
     const seva = await prisma.seva.create({
@@ -56,15 +63,14 @@ exports.createSeva = async (req, res) => {
         price: Number(price),
         totalSlots: Number(totalSlots),
         active: true,
-        // 3. Save new fields
-        isDaily: isDaily !== undefined ? isDaily : true, // Default to true
+        isDaily: isDaily !== undefined ? isDaily : true,
         date: sevaDate
       }
     });
 
     res.status(201).json(seva);
   } catch (err) {
-    console.error(err);
+    console.error("Error creating seva:", err);
     res.status(500).json({ message: "Failed to create seva" });
   }
 };
@@ -75,14 +81,9 @@ exports.createSeva = async (req, res) => {
 exports.toggleSevaStatus = async (req, res) => {
   try {
     const { id } = req.params;
+    const seva = await prisma.seva.findUnique({ where: { id: Number(id) } });
 
-    const seva = await prisma.seva.findUnique({
-      where: { id: Number(id) }
-    });
-
-    if (!seva) {
-      return res.status(404).json({ message: "Seva not found" });
-    }
+    if (!seva) return res.status(404).json({ message: "Seva not found" });
 
     const updated = await prisma.seva.update({
       where: { id: Number(id) },
@@ -92,12 +93,13 @@ exports.toggleSevaStatus = async (req, res) => {
     res.json(updated);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to update seva status" });
+    res.status(500).json({ message: "Failed to update status" });
   }
 };
+
 /**
- * ADMIN – ALL SEVAS (ACTIVE + INACTIVE)
- * GET /api/admin/sevas
+ * ADMIN – GET ALL SEVAS (Active & Inactive)
+ * Used by: Admin Panel
  */
 exports.getAllSevasAdmin = async (req, res) => {
   try {
@@ -113,13 +115,13 @@ exports.getAllSevasAdmin = async (req, res) => {
 
     const result = sevas.map(seva => ({
       ...seva,
-      bookedSlots: seva.bookings.length,
-      availableSlots: seva.totalSlots - seva.bookings.length
+      bookedSlots: seva.bookings ? seva.bookings.length : 0,
+      availableSlots: seva.totalSlots - (seva.bookings ? seva.bookings.length : 0)
     }));
 
     res.json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to fetch sevas" });
+    res.status(500).json({ message: "Failed to fetch admin sevas" });
   }
 };
