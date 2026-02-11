@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Seva" ADD COLUMN     "date" TIMESTAMP(3),
+ADD COLUMN     "isDaily" BOOLEAN NOT NULL DEFAULT true,
+ALTER COLUMN "description" DROP NOT NULL;

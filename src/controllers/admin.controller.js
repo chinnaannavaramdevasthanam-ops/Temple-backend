@@ -1,12 +1,13 @@
-const prisma = require("../config/prisma");
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
 
 /* =======================
    DASHBOARD STATS
 ======================= */
-const dashboardStats = async (req, res) => {
+exports.dashboardStats = async (req, res) => {
   try {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     const [
       totalUsers,
@@ -19,19 +20,12 @@ const dashboardStats = async (req, res) => {
       prisma.user.count(),
       prisma.seva.count(),
       prisma.booking.count(),
-      prisma.booking.count({
-        where: {
-          date: { gte: startOfToday },
-          status: "CONFIRMED"
-        }
-      }),
+      prisma.booking.count({ where: { date: { gte: today } } }),
       prisma.donation.aggregate({
         _sum: { amount: true },
         where: { paymentStatus: "SUCCESS" }
       }),
-      prisma.donation.count({
-        where: { paymentStatus: "CREATED" }
-      })
+      prisma.donation.count({ where: { paymentStatus: "CREATED" } })
     ]);
 
     res.json({
@@ -43,15 +37,15 @@ const dashboardStats = async (req, res) => {
       pendingDonations
     });
   } catch (err) {
-    console.error("Dashboard Error:", err);
-    res.status(500).json({ message: "Dashboard load failed" });
+    console.error(err);
+    res.status(500).json({ message: "Failed to load dashboard stats" });
   }
 };
 
 /* =======================
    RECENT ACTIVITY
 ======================= */
-const recentActivity = async (req, res) => {
+exports.recentActivity = async (req, res) => {
   try {
     const recentBookings = await prisma.booking.findMany({
       take: 5,
@@ -71,8 +65,7 @@ const recentActivity = async (req, res) => {
     });
 
     res.json({ recentBookings, recentDonations });
-  } catch (err) {
-    console.error("Recent Activity Error:", err);
+  } catch {
     res.status(500).json({ message: "Failed to load recent activity" });
   }
 };
@@ -80,40 +73,39 @@ const recentActivity = async (req, res) => {
 /* =======================
    SEVAS (ADMIN)
 ======================= */
-const getAllSevasAdmin = async (req, res) => {
+exports.getAllSevasAdmin = async (req, res) => {
   try {
     const sevas = await prisma.seva.findMany({
       orderBy: { createdAt: "desc" }
     });
     res.json(sevas);
-  } catch (err) {
-    console.error("Admin Sevas Error:", err);
+  } catch {
     res.status(500).json({ message: "Failed to fetch sevas" });
   }
 };
 
-const deactivateSeva = async (req, res) => {
+exports.deactivateSeva = async (req, res) => {
   try {
     await prisma.seva.update({
       where: { id: Number(req.params.id) },
       data: { active: false }
     });
+
     res.json({ message: "Seva deactivated" });
-  } catch (err) {
-    console.error(err);
+  } catch {
     res.status(500).json({ message: "Failed to deactivate seva" });
   }
 };
 
-const activateSeva = async (req, res) => {
+exports.activateSeva = async (req, res) => {
   try {
     await prisma.seva.update({
       where: { id: Number(req.params.id) },
       data: { active: true }
     });
+
     res.json({ message: "Seva activated" });
-  } catch (err) {
-    console.error(err);
+  } catch {
     res.status(500).json({ message: "Failed to activate seva" });
   }
 };
@@ -121,18 +113,29 @@ const activateSeva = async (req, res) => {
 /* =======================
    BOOKINGS (ADMIN)
 ======================= */
-const getAllBookings = async (req, res) => {
+exports.getAllBookings = async (req, res) => {
   try {
     const bookings = await prisma.booking.findMany({
+      orderBy: { date: "desc" },
       include: {
-        user: { select: { name: true, phone: true, email: true } },
-        seva: { select: { name: true, price: true } }
-      },
-      orderBy: { date: "desc" }
+        user: {
+          select: {
+            name: true,
+            phone: true,
+            email: true
+          }
+        },
+        seva: {
+          select: {
+            name: true,
+            price: true
+          }
+        }
+      }
     });
+
     res.json(bookings);
-  } catch (err) {
-    console.error("Admin Bookings Error:", err);
+  } catch {
     res.status(500).json({ message: "Failed to fetch bookings" });
   }
 };
@@ -140,22 +143,28 @@ const getAllBookings = async (req, res) => {
 /* =======================
    DONATIONS (ADMIN)
 ======================= */
-const getAllDonations = async (req, res) => {
+exports.getAllDonations = async (req, res) => {
   try {
     const donations = await prisma.donation.findMany({
+      orderBy: { createdAt: "desc" },
       include: {
-        user: { select: { name: true, phone: true, email: true } }
-      },
-      orderBy: { createdAt: "desc" }
+        user: {
+          select: {
+            name: true,
+            phone: true,
+            email: true
+          }
+        }
+      }
     });
+
     res.json(donations);
-  } catch (err) {
-    console.error("Admin Donations Error:", err);
+  } catch {
     res.status(500).json({ message: "Failed to fetch donations" });
   }
 };
 
-const updateDonationStatus = async (req, res) => {
+exports.updateDonationStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
@@ -169,22 +178,7 @@ const updateDonationStatus = async (req, res) => {
     });
 
     res.json({ message: "Donation status updated" });
-  } catch (err) {
-    console.error("Update Donation Error:", err);
+  } catch {
     res.status(500).json({ message: "Failed to update donation" });
   }
-};
-
-/* =======================
-   EXPORTS (CRITICAL)
-======================= */
-module.exports = {
-  dashboardStats,
-  recentActivity,
-  getAllSevasAdmin,
-  deactivateSeva,
-  activateSeva,
-  getAllBookings,
-  getAllDonations,
-  updateDonationStatus
 };

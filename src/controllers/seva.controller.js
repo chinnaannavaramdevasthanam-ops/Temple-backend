@@ -1,40 +1,41 @@
 const prisma = require("../config/prisma");
 
-const getSevas = async (req, res) => {
+/* ================================
+   PUBLIC – ACTIVE SEVAS
+================================ */
+exports.getSevas = async (req, res) => {
   try {
     const sevas = await prisma.seva.findMany({
       where: { active: true },
-      include: {
-        bookings: { where: { status: "CONFIRMED" } }
-      },
       orderBy: { createdAt: "desc" }
     });
 
-    res.json(
-      sevas.map(s => ({
-        ...s,
-        bookedSlots: s.bookings.length,
-        availableSlots: s.totalSlots - s.bookings.length
-      }))
-    );
+    res.json(sevas);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to fetch sevas" });
   }
 };
 
-const createSeva = async (req, res) => {
+/* ================================
+   ADMIN – CREATE SEVA
+================================ */
+exports.createSeva = async (req, res) => {
   try {
     const { name, description, price, totalSlots, date, isDaily } = req.body;
 
+    if (!name || !price || !totalSlots) {
+      return res.status(400).json({ message: "Name, price and slots are required" });
+    }
+
     const seva = await prisma.seva.create({
       data: {
-        name,
-        description,
+        name: name.trim(),
+        description: description?.trim() || null,
         price: Number(price),
         totalSlots: Number(totalSlots),
-        isDaily: isDaily ?? true,
         date: isDaily ? null : new Date(date),
+        isDaily: isDaily ?? true,
         active: true
       }
     });
@@ -46,9 +47,13 @@ const createSeva = async (req, res) => {
   }
 };
 
-const toggleSevaStatus = async (req, res) => {
+/* ================================
+   ADMIN – TOGGLE STATUS
+================================ */
+exports.toggleSevaStatus = async (req, res) => {
   try {
     const id = Number(req.params.id);
+
     const seva = await prisma.seva.findUnique({ where: { id } });
 
     if (!seva) {
@@ -63,12 +68,22 @@ const toggleSevaStatus = async (req, res) => {
     res.json(updated);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to toggle status" });
+    res.status(500).json({ message: "Failed to update seva status" });
   }
 };
 
-module.exports = {
-  getSevas,
-  createSeva,
-  toggleSevaStatus
+/* ================================
+   ADMIN – ALL SEVAS
+================================ */
+exports.getAllSevasAdmin = async (req, res) => {
+  try {
+    const sevas = await prisma.seva.findMany({
+      orderBy: { createdAt: "desc" }
+    });
+
+    res.json(sevas);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch sevas" });
+  }
 };

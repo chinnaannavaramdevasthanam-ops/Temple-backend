@@ -24,18 +24,17 @@ model User {
 model Seva {
   id          Int       @id @default(autoincrement())
   name        String
-  description String
-  price       Float
+  description String?
+  price       Int
   totalSlots  Int
+  date        DateTime?      // NULL = Daily Seva
+  isDaily     Boolean  @default(true)
   active      Boolean   @default(true)
-
-  isDaily     Boolean   @default(true) 
-  date        DateTime?
   createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
 
   bookings Booking[]
 }
+
 
 model Booking {
   id     Int           @id @default(autoincrement())
