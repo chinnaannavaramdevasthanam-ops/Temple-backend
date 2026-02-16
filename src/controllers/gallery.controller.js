@@ -1,47 +1,70 @@
-const prisma = require("../config/prisma");
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
 const cloudinary = require("../utils/cloudinary");
-const asyncHandler = require("../utils/asyncHandler");
-const AppError = require("../utils/AppError");
 
-exports.getImages = asyncHandler(async (req, res) => {
-  const images = await prisma.galleryImage.findMany({
-    orderBy: { createdAt: "desc" }
-  });
-  res.json(images);
-});
+// PUBLIC
+exports.getImages = async (req, res) => {
+  try {
+    const images = await prisma.galleryImage.findMany({
+      orderBy: { createdAt: "desc" }
+    });
+    res.json(images);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to load gallery" });
+  }
+};
 
-exports.addImage = asyncHandler(async (req, res) => {
-  if (!req.file?.buffer)
-    throw new AppError("Image required", 400);
-
-  const uploadResult = await new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: "temple-gallery" },
-      (err, result) => (err ? reject(err) : resolve(result))
-    );
-    stream.end(req.file.buffer);
-  });
-
-  const image = await prisma.galleryImage.create({
-    data: {
-      imageUrl: uploadResult.secure_url,
-      publicId: uploadResult.public_id
+// ADMIN ADD
+exports.addImage = async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ message: "Image required" });
     }
-  });
 
-  res.status(201).json(image);
-});
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "temple-gallery" },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        }
+      );
+      stream.end(req.file.buffer);
+    });
 
-exports.deleteImage = asyncHandler(async (req, res) => {
-  const id = Number(req.params.id);
+    const image = await prisma.galleryImage.create({
+      data: {
+        imageUrl: uploadResult.secure_url,
+        publicId: uploadResult.public_id
+      }
+    });
 
-  const image = await prisma.galleryImage.findUnique({ where: { id } });
-  if (!image) throw new AppError("Image not found", 404);
+    res.status(201).json(image);
+  } catch (err) {
+    console.error("UPLOAD ERROR:", err);
+    res.status(500).json({ message: "Upload failed" });
+  }
+};
 
-  if (image.publicId)
-    await cloudinary.uploader.destroy(image.publicId);
+// ADMIN DELETE
+exports.deleteImage = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
 
-  await prisma.galleryImage.delete({ where: { id } });
+    const image = await prisma.galleryImage.findUnique({ where: { id } });
+    if (!image) return res.status(404).json({ message: "Not found" });
 
-  res.json({ message: "Deleted successfully" });
-});
+    // 🔥 SAFETY FIX
+    if (image.publicId) {
+      await cloudinary.uploader.destroy(image.publicId);
+    }
+
+    await prisma.galleryImage.delete({ where: { id } });
+
+    res.json({ message: "Deleted successfully" });
+  } catch (err) {
+    console.error("DELETE ERROR:", err);
+    res.status(500).json({ message: "Delete failed" });
+  }
+};
