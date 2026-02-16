@@ -1,110 +1,70 @@
 const prisma = require("../config/prisma");
 const bcrypt = require("bcryptjs");
 const { generateToken } = require("../utils/jwt");
+const asyncHandler = require("../utils/asyncHandler");
+const AppError = require("../utils/AppError");
 
-/* ================================
-   PASSWORD VALIDATION REGEX
-================================ */
-const strongPasswordRegex =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+exports.register = asyncHandler(async (req, res) => {
+  const { name, phone, email, password, confirmPassword } = req.body;
 
-/* ================================
-   REGISTER
-================================ */
-exports.register = async (req, res) => {
-  try {
-    const { name, phone, email, password, confirmPassword } = req.body;
+  if (!name || !phone || !email || !password || !confirmPassword)
+    throw new AppError("All fields required", 400);
 
-    if (!name || !phone || !email || !password || !confirmPassword) {
-      return res.status(400).json({ message: "All fields are required" });
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email))
+    throw new AppError("Invalid email format", 400);
+
+  if (password !== confirmPassword)
+    throw new AppError("Passwords do not match", 400);
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing)
+    throw new AppError("User already exists", 409);
+
+  const hashed = await bcrypt.hash(password, 10);
+
+  await prisma.user.create({
+    data: {
+      name: name.trim(),
+      phone,
+      email: email.toLowerCase(),
+      password: hashed,
+      role: "USER"
     }
+  });
 
-    // ✅ Email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: "Invalid email format" });
-    }
+  res.status(201).json({ message: "Registration successful" });
+});
 
-    // ✅ Strong password validation
-    if (!strongPasswordRegex.test(password)) {
-      return res.status(400).json({
-        message:
-          "Password must be 8+ characters with uppercase, lowercase, number & special character"
-      });
-    }
+exports.login = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
 
-    if (password !== confirmPassword) {
-      return res.status(400).json({ message: "Passwords do not match" });
-    }
+  if (!email || !password)
+    throw new AppError("Email and password required", 400);
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    });
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() }
+  });
 
-    if (existingUser) {
-      return res.status(409).json({ message: "User already registered" });
-    }
+  if (!user)
+    throw new AppError("User not found", 404);
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+  const match = await bcrypt.compare(password, user.password);
+  if (!match)
+    throw new AppError("Incorrect password", 401);
 
-    await prisma.user.create({
-      data: {
-        name: name.trim(),
-        phone,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        role: "USER"
-      }
-    });
+  const token = generateToken(user);
 
-    res.status(201).json({
-      message: "Registration successful. Please login."
-    });
-  } catch (error) {
-    console.error("REGISTER ERROR:", error);
-    res.status(500).json({ message: "Registration failed" });
-  }
-};
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  });
 
-// =====================
-// LOGIN (USER + ADMIN)
-// =====================
-exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password required"
-      });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() }
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      return res.status(401).json({ message: "Incorrect password" });
-    }
-
-    res.json({
-      message: "Login successful",
-      token: generateToken(user),
-      role: user.role,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email
-      }
-    });
-  } catch (error) {
-    console.error("LOGIN ERROR:", error);
-    res.status(500).json({ message: "Login failed" });
-  }
-};
+  res.json({
+    message: "Login successful",
+    role: user.role,
+    user: { id: user.id, name: user.name, email: user.email }
+  });
+});

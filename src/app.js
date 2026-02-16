@@ -1,5 +1,10 @@
 const express = require("express");
-const cors = require("cors");
+const morgan = require("morgan");
+const cookieParser = require("cookie-parser");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const errorHandler = require("./middleware/error.middleware");
+
 
 const authRoutes = require("./routes/auth.routes");
 const auth = require("./middleware/auth.middleware");
@@ -9,10 +14,25 @@ const donationRoutes = require("./routes/donation.routes");
 const adminRoutes = require("./routes/admin.routes");
 const galleryRoutes = require("./routes/gallery.routes");
 
-const app = express();
+app.use(morgan("dev"));
 
-app.use(cors());
+app.use(helmet());
+
+app.disable("x-powered-by");
+
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100
+}));
+
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true
+}));
+
+app.use(cookieParser());
 app.use(express.json());
+
 
 app.get("/api/test", auth, (req, res) => {
   res.json({ message: "Protected", user: req.user });
@@ -26,21 +46,12 @@ app.use("/api/donations", donationRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/gallery", galleryRoutes);
-  
-
-app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    if (err.code === "LIMIT_FILE_SIZE") {
-      return res.status(413).json({
-        message: "Image too large. Max allowed size is 25MB."
-      });
-    }
-  }
-  next(err);
-});
  
 app.get("/", (req, res) => {
   res.send("Temple Backend Running");
 });
+
+app.use(errorHandler);
+
 
 module.exports = app;
