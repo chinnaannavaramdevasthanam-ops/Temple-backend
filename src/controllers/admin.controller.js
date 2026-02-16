@@ -1,6 +1,10 @@
 const prisma = require("../config/prisma");
 const asyncHandler = require("../utils/asyncHandler");
+const AppError = require("../utils/AppError");
 
+/* ===============================
+   DASHBOARD STATS
+=============================== */
 exports.dashboardStats = asyncHandler(async (req, res) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -34,6 +38,9 @@ exports.dashboardStats = asyncHandler(async (req, res) => {
   });
 });
 
+/* ===============================
+   RECENT ACTIVITY
+=============================== */
 exports.recentActivity = asyncHandler(async (req, res) => {
   const recentBookings = await prisma.booking.findMany({
     take: 5,
@@ -47,8 +54,81 @@ exports.recentActivity = asyncHandler(async (req, res) => {
   const recentDonations = await prisma.donation.findMany({
     take: 5,
     orderBy: { id: "desc" },
-    include: { user: { select: { name: true, phone: true } } }
+    include: {
+      user: { select: { name: true, phone: true } }
+    }
   });
 
   res.json({ recentBookings, recentDonations });
+});
+
+/* ===============================
+   ADMIN SEVAS
+=============================== */
+exports.getAllSevasAdmin = asyncHandler(async (req, res) => {
+  const sevas = await prisma.seva.findMany({
+    orderBy: { createdAt: "desc" }
+  });
+  res.json(sevas);
+});
+
+exports.deactivateSeva = asyncHandler(async (req, res) => {
+  await prisma.seva.update({
+    where: { id: Number(req.params.id) },
+    data: { active: false }
+  });
+
+  res.json({ message: "Seva deactivated" });
+});
+
+exports.activateSeva = asyncHandler(async (req, res) => {
+  await prisma.seva.update({
+    where: { id: Number(req.params.id) },
+    data: { active: true }
+  });
+
+  res.json({ message: "Seva activated" });
+});
+
+/* ===============================
+   ADMIN BOOKINGS
+=============================== */
+exports.getAllBookings = asyncHandler(async (req, res) => {
+  const bookings = await prisma.booking.findMany({
+    orderBy: { date: "desc" },
+    include: {
+      user: { select: { name: true, phone: true, email: true } },
+      seva: { select: { name: true, price: true } }
+    }
+  });
+
+  res.json(bookings);
+});
+
+/* ===============================
+   ADMIN DONATIONS
+=============================== */
+exports.getAllDonations = asyncHandler(async (req, res) => {
+  const donations = await prisma.donation.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      user: { select: { name: true, phone: true, email: true } }
+    }
+  });
+
+  res.json(donations);
+});
+
+exports.updateDonationStatus = asyncHandler(async (req, res) => {
+  const { status } = req.body;
+
+  if (!["SUCCESS", "FAILED"].includes(status))
+    throw new AppError("Invalid status", 400);
+
+  await prisma.donation.update({
+    where: { id: Number(req.params.id) },
+    data: { paymentStatus: status }
+  });
+
+  res.json({ message: "Donation status updated" });
 });
