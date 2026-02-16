@@ -55,16 +55,22 @@ exports.login = asyncHandler(async (req, res) => {
 
   const token = generateToken(user);
 
+  // 🍪 cookie
   res.cookie("token", token, {
     httpOnly: true,
     secure: true,
-    sameSite: "Strict",
+    sameSite: "None",
     maxAge: 7 * 24 * 60 * 60 * 1000
   });
 
+  // ✅ SEND ROLE ONLY
   res.json({
     message: "Login successful",
     role: user.role,
-    user: { id: user.id, name: user.name, email: user.email }
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email
+    }
   });
 });
