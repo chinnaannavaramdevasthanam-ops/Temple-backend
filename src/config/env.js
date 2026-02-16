@@ -14,4 +14,3 @@ requiredEnv.forEach(key => {
 });
 
 console.log("✅ Environment variables validated");
-FRONTEND_URL=http://localhost:5173
