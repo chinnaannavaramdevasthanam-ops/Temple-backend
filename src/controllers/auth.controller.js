@@ -120,13 +120,4 @@ res.json({
   }
 };
 
-const authMiddleware = require("../middleware/auth.middleware");
 
-router.get("/me", authMiddleware, (req, res) => {
-  res.json(req.user);
-});
-
-router.post("/logout", (req, res) => {
-  res.clearCookie("token");
-  res.json({ message: "Logged out" });
-});
