@@ -13,6 +13,9 @@ const galleryRoutes = require("./routes/gallery.routes");
 const app = express();
 const cookieParser = require("cookie-parser");
 
+app.set("trust proxy", 1);
+
+
 app.use(cors({
   origin: "https://chinnaannavaram.netlify.app",
   credentials: true
