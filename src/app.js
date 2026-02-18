@@ -14,9 +14,10 @@ const app = express();
 const cookieParser = require("cookie-parser");
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: ["https://chinnaannavaram.netlify.app"],
   credentials: true
 }));
+
 
 app.use(cookieParser());
 
