@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
+const cookieParser = require("cookie-parser");
+
 
 const authRoutes = require("./routes/auth.routes");
 const auth = require("./middleware/auth.middleware");
@@ -11,8 +13,15 @@ const adminRoutes = require("./routes/admin.routes");
 const galleryRoutes = require("./routes/gallery.routes");
 
 const app = express();
+const cookieParser = require("cookie-parser");
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true
+}));
+
+app.use(cookieParser());
+
 app.use(express.json());
 
 app.get("/api/test", auth, (req, res) => {

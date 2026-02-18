@@ -93,10 +93,21 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Incorrect password" });
     }
 
-    res.json({
-      message: "Login successful",
-      token: generateToken(user),
-      role: user.role,
+    const token = generateToken(user);
+
+const isProd = process.env.NODE_ENV === "production";
+
+res.cookie("token", token, {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000
+});
+
+res.json({
+  message: "Login successful",
+  role: user.role,
+
       user: {
         id: user.id,
         name: user.name,
@@ -108,3 +119,14 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Login failed" });
   }
 };
+
+const authMiddleware = require("../middleware/auth.middleware");
+
+router.get("/me", authMiddleware, (req, res) => {
+  res.json(req.user);
+});
+
+router.post("/logout", (req, res) => {
+  res.clearCookie("token");
+  res.json({ message: "Logged out" });
+});

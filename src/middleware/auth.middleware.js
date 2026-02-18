@@ -1,15 +1,17 @@
 const jwt = require("jsonwebtoken");
 
 module.exports = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  const token = req.cookies.token;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+
+ if (!token) {
+
     return res.status(401).json({
       message: "Login required"
     });
   }
 
-  const token = authHeader.split(" ")[1];
+  
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
